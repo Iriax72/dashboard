@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Mes projets web</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,17 +10,20 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <aside class="sidebar">
-    <header>
-      <h1>Mes projets</h1>
-      <p id="owner" class="muted"></p>
-    </header>
-    <nav id="list" aria-label="Liste des projets"></nav>
-  </aside>
+  <header class="topbar">
+    <button id="back" class="back" type="button" aria-label="Retour à la liste des projets">‹</button>
+    <h1>Mes projets</h1>
+    <span id="owner" class="owner"></span>
+  </header>
 
-  <main id="detail" tabindex="-1">
-    <p class="empty">Choisis un projet dans la liste pour voir son README et son site déployé.</p>
-  </main>
+  <div class="layout">
+    <nav id="list" class="sidebar" aria-label="Liste des projets"></nav>
+    <main id="detail" tabindex="-1"></main>
+  </div>
+
+  <footer class="credit">
+    Application générée en partie par IA : Claude Sonnet 5.5 (Anthropic).
+  </footer>
 
   <script src="app.js"></script>
 </body>
