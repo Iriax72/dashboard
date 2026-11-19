@@ -1,8 +1,8 @@
 {
-  "username": "TON-PSEUDO-GITHUB",
+  "username": "Iriax72",
   "projects": [
-    { "repo": "nom-du-depot-1", "url": "https://exemple.com" },
-    { "repo": "nom-du-depot-2", "url": "https://exemple.fr", "title": "Titre personnalisé (optionnel)" },
-    { "repo": "nom-du-depot-3", "url": "" }
+    { "repo": "DnD-online", "url": "https://dnd-online.wasmer.app" },
+    { "repo": "dashboard", "url": "https://iriax72.github.io/dashboard"},
+    { "repo": "rogue-lite", "url": "https://rogue-lite.wasmer.app" }
   ]
 }
