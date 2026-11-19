@@ -29,7 +29,7 @@ Un fichier = un langage.
 
 ## Configuration
 
-Modifie `projects.json` :
+`projects.json` suis ce contrat:
 
 ```json
 {
@@ -45,16 +45,9 @@ Modifie `projects.json` :
 - `url` : adresse du site déployé, ou `""` s'il n'y en a pas
 - `title` : nom affiché à la place du nom du dépôt (optionnel)
 
-## Lancer le projet
+## Déploiement
 
-Aucune installation ni build. Il faut simplement servir le dossier avec un serveur local,
-car un navigateur bloque la lecture de `projects.json` en ouvrant `index.html` directement :
-
-```bash
-python3 -m http.server 8000
-```
-
-Puis ouvre <http://localhost:8000>.
+L’application est déployée à l’adresse `https://iriax72.github.io/dashboard` grâce au service d’hébergement de GitHub Pages.
 
 ## Limites
 
