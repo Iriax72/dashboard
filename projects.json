@@ -1,8 +1,11 @@
 {
   "username": "Iriax72",
   "projects": [
+    { "repo": "Chat-JDR", "url": "https://iriax72.github.io/Chat-JDR" },
     { "repo": "DnD-online", "url": "https://dnd-online.wasmer.app" },
     { "repo": "dashboard", "url": "https://iriax72.github.io/dashboard"},
-    { "repo": "rogue-lite", "url": "https://rogue-lite.wasmer.app" }
+    { "repo": "rogue-lite", "url": "https://rogue-lite.wasmer.app" },
+    { "repo": "revise", "url": "https://revise.wasmer.app" },
+    { "repo": "github-profiles", "url": "https://github-profiles.wasmer.app" }
   ]
 }
