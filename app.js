@@ -2,135 +2,183 @@ const API = "https://api.github.com";
 const listEl = document.getElementById("list");
 const detailEl = document.getElementById("detail");
 const ownerEl = document.getElementById("owner");
+const backEl = document.getElementById("back");
 
 let config = null;
-const repoInfo = new Map();   // repo -> infos GitHub
+const repoInfo = new Map();    // repo -> infos GitHub
+const repoMissing = new Set(); // dépôts introuvables (404)
 const readmeCache = new Map(); // repo -> HTML du README
 
+backEl.addEventListener("click", () => { location.hash = ""; });
 init();
 
+/* ---------- Démarrage ---------- */
 async function init() {
+  showHome();
   try {
-    const res = await fetch("projects.json");
-    if (!res.ok) throw new Error("projects.json introuvable");
+    const res = await fetch("projects.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error("http");
     config = await res.json();
+    if (!config || !Array.isArray(config.projects)) throw new Error("format");
   } catch (e) {
-    showError("Impossible de lire projects.json. Lance la page via un serveur local (ex. « python3 -m http.server »), pas en double-cliquant sur le fichier.");
-    return;
+    return showNotice({
+      kind: "error",
+      title: "Impossible de lire projects.json",
+      text: e.message === "format"
+        ? "Le fichier doit contenir un champ « username » et une liste « projects »."
+        : "Ouvre la page depuis un serveur local (par exemple « python3 -m http.server ») : un double-clic sur index.html bloque la lecture du fichier.",
+      actions: [button("Réessayer", () => location.reload())],
+    });
   }
 
   ownerEl.textContent = "@" + config.username;
   renderList();
-  loadRepoInfos();
   window.addEventListener("hashchange", openFromHash);
+
+  if (!config.username || config.username.startsWith("TON-PSEUDO")) {
+    return showNotice({
+      kind: "info", title: "Configuration à terminer",
+      text: "Ouvre projects.json et remplace TON-PSEUDO-GITHUB par ton nom d'utilisateur GitHub.",
+    });
+  }
+  if (!config.projects.length) {
+    return showNotice({
+      kind: "info", title: "Aucun projet pour l'instant",
+      text: "Ajoute des dépôts dans la liste « projects » de projects.json.",
+    });
+  }
+  await loadRepoInfos();
   openFromHash();
+}
+
+function showHome() {
+  document.body.classList.remove("view-detail");
+  detailEl.replaceChildren(el("p", "hint", "Choisis un projet pour voir son README et son site déployé."));
 }
 
 /* ---------- Liste ---------- */
 function renderList() {
-  listEl.innerHTML = "";
-  config.projects.forEach((p) => {
-    const btn = document.createElement("button");
-    btn.className = "item";
-    btn.dataset.repo = p.repo;
-    btn.innerHTML = `
-      <span class="name"><span class="dot ${p.url ? "live" : ""}"></span><span class="t"></span></span>
-      <span class="sub">${p.url ? "En ligne" : "Pas de déploiement"}</span>`;
-    btn.querySelector(".t").textContent = p.title || p.repo;
-    btn.addEventListener("click", () => { location.hash = p.repo; });
-    listEl.appendChild(btn);
-  });
+  listEl.replaceChildren(...config.projects.map((p) => {
+    const b = el("button", "item");
+    b.type = "button";
+    b.dataset.repo = p.repo;
+    const name = el("span", "name");
+    name.append(el("span", "dot" + (p.url ? " live" : "")), el("span", "", p.title || p.repo));
+    b.append(name, el("span", "sub", p.url ? "En ligne" : "Pas de déploiement"));
+    b.addEventListener("click", () => { location.hash = encodeURIComponent(p.repo); });
+    return b;
+  }));
 }
 
 async function loadRepoInfos() {
   await Promise.all(config.projects.map(async (p) => {
     try {
       const res = await fetch(`${API}/repos/${config.username}/${p.repo}`);
-      if (!res.ok) throw new Error(res.status);
-      repoInfo.set(p.repo, await res.json());
-    } catch { /* la fiche affichera l'erreur */ }
+      if (res.ok) repoInfo.set(p.repo, await res.json());
+      else if (res.status === 404) repoMissing.add(p.repo);
+    } catch { /* le détail affichera l'erreur réseau */ }
   }));
-  openFromHash(true);
 }
 
-/* ---------- Détail ---------- */
-function openFromHash(silent) {
+/* ---------- Navigation ---------- */
+function openFromHash() {
+  if (!config) return;
   const repo = decodeURIComponent(location.hash.slice(1));
   const project = config.projects.find((p) => p.repo === repo);
   listEl.querySelectorAll(".item").forEach((b) =>
     b.setAttribute("aria-current", String(b.dataset.repo === repo)));
-  if (project) showProject(project);
-  else if (silent !== true) {
-    detailEl.innerHTML = `<p class="empty">Choisis un projet dans la liste pour voir son README et son site déployé.</p>`;
-  }
+  if (!project) return showHome();
+  document.body.classList.add("view-detail");
+  showProject(project);
+  detailEl.scrollTop = 0;
+  detailEl.focus({ preventScroll: true });
 }
 
+/* ---------- Fiche projet ---------- */
 async function showProject(p) {
   const info = repoInfo.get(p.repo);
-  detailEl.innerHTML = "";
+  const ghUrl = `https://github.com/${config.username}/${p.repo}`;
 
-  const head = document.createElement("div");
-  head.className = "head";
-  const left = document.createElement("div");
-  const h2 = document.createElement("h2");
-  h2.textContent = p.title || p.repo;
-  left.appendChild(h2);
-
-  if (info?.description) {
-    const d = document.createElement("p");
-    d.className = "muted";
-    d.textContent = info.description;
-    left.appendChild(d);
-  }
+  const left = el("div");
+  left.append(el("h2", "", p.title || p.repo));
+  if (info?.description) left.append(el("p", "desc", info.description));
   if (info) {
-    const ul = document.createElement("ul");
-    ul.className = "facts";
-    [info.language, `${info.stargazers_count} ★`,
+    const ul = el("ul", "facts");
+    [info.language, `${info.stargazers_count} étoiles`,
      "Mis à jour le " + new Date(info.pushed_at).toLocaleDateString("fr-FR")]
-      .filter(Boolean)
-      .forEach((t) => { const li = document.createElement("li"); li.textContent = t; ul.appendChild(li); });
-    left.appendChild(ul);
+      .filter(Boolean).forEach((t) => ul.append(el("li", "", t)));
+    left.append(ul);
   }
-
-  const actions = document.createElement("div");
-  actions.className = "actions";
-  actions.append(
-    link("Ouvrir le site", p.url, "btn primary"),
-    link("Voir sur GitHub", `https://github.com/${config.username}/${p.repo}`, "btn")
-  );
+  const actions = el("div", "actions");
+  actions.append(link("Ouvrir le site", p.url, "btn primary"), link("Voir sur GitHub", ghUrl, "btn"));
+  const head = el("div", "head");
   head.append(left, actions);
 
-  const readme = document.createElement("article");
-  readme.className = "readme";
-  readme.textContent = "Chargement du README…";
-  detailEl.append(head, readme);
+  detailEl.replaceChildren(head);
+
+  if (repoMissing.has(p.repo)) {
+    return detailEl.append(notice({
+      kind: "error", title: "Dépôt introuvable",
+      text: `Le dépôt « ${config.username}/${p.repo} » n'existe pas ou n'est pas public. Vérifie son nom dans projects.json.`,
+    }));
+  }
+
+  const loading = el("div", "skeleton");
+  loading.setAttribute("aria-busy", "true");
+  loading.append(el("span"), el("span"), el("span"), el("span"));
+  detailEl.append(loading);
 
   try {
-    readme.innerHTML = await getReadme(p.repo);
+    const html = await getReadme(p.repo);
+    if (!isCurrent(p)) return;
+    const article = el("article", "readme");
+    article.innerHTML = html;
+    loading.replaceWith(article);
   } catch (e) {
-    readme.className = "error";
-    readme.textContent = e.message;
+    if (!isCurrent(p)) return;
+    const retry = button("Réessayer", () => { readmeCache.delete(p.repo); showProject(p); });
+    loading.replaceWith(notice(readmeProblem(e, ghUrl, retry)));
   }
 }
 
-function link(label, href, cls) {
-  const a = document.createElement("a");
-  a.className = cls;
-  a.textContent = label;
-  if (href) { a.href = href; a.target = "_blank"; a.rel = "noopener noreferrer"; }
-  else a.setAttribute("aria-disabled", "true");
-  return a;
+const isCurrent = (p) => decodeURIComponent(location.hash.slice(1)) === p.repo;
+
+function readmeProblem(e, ghUrl, retry) {
+  switch (e.code) {
+    case "none":
+      return { kind: "info", title: "Pas de README pour ce projet",
+        text: "Ce dépôt n'en contient pas encore. Tu peux en ajouter un directement sur GitHub.",
+        actions: [link("Ajouter un README", ghUrl, "btn")] };
+    case "rate":
+      return { kind: "warning", title: "Limite GitHub atteinte",
+        text: `GitHub autorise 60 requêtes par heure sans identification. ${e.resetAt ? "Réessaie vers " + e.resetAt + "." : "Réessaie un peu plus tard."}`,
+        actions: [retry] };
+    case "network":
+      return { kind: "warning", title: "Connexion impossible",
+        text: "GitHub est injoignable. Vérifie ta connexion internet puis réessaie.", actions: [retry] };
+    default:
+      return { kind: "error", title: "Le README n'a pas pu être chargé",
+        text: `GitHub a répondu par une erreur (${e.status || "inconnue"}).`, actions: [retry] };
+  }
 }
 
 /* ---------- README (HTML déjà rendu et nettoyé par GitHub) ---------- */
 async function getReadme(repo) {
   if (readmeCache.has(repo)) return readmeCache.get(repo);
-  const res = await fetch(`${API}/repos/${config.username}/${repo}/readme`, {
-    headers: { Accept: "application/vnd.github.html+json" },
-  });
-  if (res.status === 404) throw new Error("Ce dépôt n'a pas de README.");
-  if (res.status === 403) throw new Error("Limite de requêtes GitHub atteinte (60 par heure sans token). Réessaie plus tard.");
-  if (!res.ok) throw new Error(`Erreur GitHub (${res.status}).`);
+  let res;
+  try {
+    res = await fetch(`${API}/repos/${config.username}/${repo}/readme`, {
+      headers: { Accept: "application/vnd.github.html+json" },
+    });
+  } catch { throw { code: "network" }; }
+
+  if (res.status === 404) throw { code: "none" };
+  if (res.status === 403 || res.status === 429) {
+    const reset = Number(res.headers.get("x-ratelimit-reset"));
+    throw { code: "rate", resetAt: reset ? new Date(reset * 1000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "" };
+  }
+  if (!res.ok) throw { code: "http", status: res.status };
+
   const html = fixRelativeUrls(await res.text(), repo);
   readmeCache.set(repo, html);
   return html;
@@ -154,10 +202,38 @@ function fixRelativeUrls(html, repo) {
   return doc.body.innerHTML;
 }
 
-function showError(msg) {
-  detailEl.innerHTML = "";
-  const p = document.createElement("p");
-  p.className = "error";
-  p.textContent = msg;
-  detailEl.appendChild(p);
+/* ---------- Petits utilitaires d'interface ---------- */
+function el(tag, cls = "", text = "") {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text) n.textContent = text;
+  return n;
+}
+
+function button(label, onClick) {
+  const b = el("button", "btn", label);
+  b.type = "button";
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+function link(label, href, cls) {
+  const a = el("a", cls, label);
+  if (href) { a.href = href; a.target = "_blank"; a.rel = "noopener noreferrer"; }
+  else a.setAttribute("aria-disabled", "true");
+  return a;
+}
+
+// Carte de message : info (bleu), warning (orange), error (rouge)
+function notice({ kind, title, text, actions = [] }) {
+  const n = el("div", `notice ${kind}`);
+  n.setAttribute("role", kind === "error" ? "alert" : "status");
+  n.append(el("span", "icon", kind === "info" ? "i" : "!"), el("h3", "", title), el("p", "", text));
+  if (actions.length) { const a = el("div", "actions"); a.append(...actions); n.append(a); }
+  return n;
+}
+
+function showNotice(opts) {
+  detailEl.replaceChildren(notice(opts));
+  document.body.classList.add("view-detail");
 }
