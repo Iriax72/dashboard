@@ -1,6 +1,7 @@
 {
   "username": "Iriax72",
   "projects": [
+    { "repo": "wiki-pied-dia", "url": "https://wiki-pied-dia.wasmer.app" },
     { "repo": "Chat-JDR", "url": "https://iriax72.github.io/Chat-JDR" },
     { "repo": "DnD-online", "url": "https://dnd-online.wasmer.app" },
     { "repo": "dashboard", "url": "https://iriax72.github.io/dashboard"},
